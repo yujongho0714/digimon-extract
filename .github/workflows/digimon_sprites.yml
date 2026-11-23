@@ -749,10 +749,13 @@ jobs:
           mkdir -p umt/dl umt/cli
           cd umt
           # 리눅스용 CLI 파일 이름은 'UTMT_CLI_..._Ubuntu.zip' (Linux 아님!)
-          gh release download --repo UnderminersTeam/UndertaleModTool --pattern '*CLI*Ubuntu*' --dir dl \
-            || gh release download bleeding-edge --repo UnderminersTeam/UndertaleModTool --pattern '*CLI*Ubuntu*' --dir dl \
-            || gh release download bleeding-edge --repo UnderminersTeam/UndertaleModTool --pattern '*CLI*ubuntu*' --dir dl \
-            || true
+          # 최신 릴리스 -> bleeding-edge 순서로, 이름 패턴도 여러 개 시도
+          for REL in "" bleeding-edge; do
+            for PAT in '*CLI*Ubuntu*' '*CLI*ubuntu*' '*CLI*Linux*' '*CLI*linux*'; do
+              [ -n "$(ls dl 2>/dev/null)" ] && break 2
+              gh release download $REL --repo UnderminersTeam/UndertaleModTool --pattern "$PAT" --dir dl 2>/dev/null || true
+            done
+          done
           ls -la dl
           for z in dl/*.zip; do [ -f "$z" ] && unzip -o -q "$z" -d cli; done || true
           CLI=$(find "$PWD/cli" -type f \( -iname 'UndertaleModCli' -o -iname 'UTMT_CLI' \) | head -1 || true)
