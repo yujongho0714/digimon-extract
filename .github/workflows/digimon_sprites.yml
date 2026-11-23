@@ -59,7 +59,7 @@ jobs:
                   catch (Exception e) { fail++; Console.WriteLine("실패 " + sprite.Name.Content + "_" + i + ": " + e.Message); }
               }
           }
-          worker.Cleanup();
+          (worker as IDisposable)?.Dispose();
           Console.WriteLine("내보내기 완료: 성공 " + ok + " / 실패 " + fail);
           ZZEOF_CSX
           cat > tools/build_strips.py <<'ZZEOF_PY'
