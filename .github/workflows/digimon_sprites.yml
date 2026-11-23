@@ -769,7 +769,9 @@ jobs:
         run: |
           mkdir -p out
           export OUT_DIR="$PWD/out"
-          "$CLI" load data/game.droid --scripts tools/export_idle.csx 2>&1 | tee export.log
+          "$CLI" load data/game.droid --scripts tools/export_idle.csx 2>&1 | tee export.log || true
+          echo "=== 스크립트 에러 요약 ==="
+          grep -h "error CS" export.log | sort -u || true
           echo "내보낸 PNG 수: $(ls out | wc -l)"
           [ "$(ls out | wc -l)" -gt 0 ] || { echo "내보낸 파일이 0개 -> 실패"; exit 1; }
 
