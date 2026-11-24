@@ -89,6 +89,7 @@ jobs:
           ZZEOF_PY
           cat > data/digimon_names.json <<'ZZEOF_NAMES'
           {
+          "1": "Botamon",
           "2": "Koromon",
           "3": "Agumon",
           "4": "Agumon (Black)",
@@ -269,6 +270,7 @@ jobs:
           "210": "Cherubimon (Vice)",
           "211": "Anubismon",
           "212": "Death-X-DORUgoramon",
+          "213": "Punimon",
           "214": "Tsunomon",
           "215": "Nyaromon",
           "216": "Pukamon",
@@ -288,6 +290,7 @@ jobs:
           "231": "Otamamon",
           "232": "Candlemon",
           "233": "Guilmon",
+          "234": "Bukamon",
           "235": "Babydmon",
           "237": "Chibimon",
           "239": "Mochimon",
@@ -314,6 +317,7 @@ jobs:
           "260": "ShogunGekomon",
           "261": "Pumpkinmon",
           "262": "Pukumon",
+          "263": "Kuramon",
           "264": "Tsumemon",
           "265": "Keramon",
           "267": "Gummymon",
@@ -502,8 +506,10 @@ jobs:
           "579": "Drimogemon",
           "580": "Beetlemon",
           "581": "MetalKabuterimon",
+          "584": "Jijimon",
           "585": "NiseDrimogemon",
           "586": "Snimon",
+          "587": "Nohemon",
           "588": "Musyamon",
           "589": "Oboromon",
           "590": "Zanbamon",
@@ -518,9 +524,15 @@ jobs:
           "599": "Lalamon",
           "600": "Sunflowmon",
           "601": "Lilamon",
+          "602": "Yatagaramon",
           "605": "Chikurimon",
+          "606": "Mushroomon",
           "607": "Pidmon",
+          "608": "Burgermon",
+          "610": "Citramon",
+          "613": "Togemogumon",
           "614": "Nanimon",
+          "617": "Nanomon",
           "618": "Angewomon",
           "621": "Whamon",
           "622": "MasterTyranomon",
@@ -545,6 +557,7 @@ jobs:
           "643": "Pukumon",
           "644": "Dinomon",
           "645": "Gokimon",
+          "646": "Cutemon",
           "647": "Betsumon",
           "648": "Fujinmon",
           "649": "Suijinmon",
@@ -573,11 +586,13 @@ jobs:
           "672": "Eosmon",
           "673": "Eosmon",
           "674": "Eosmon",
+          "675": "Digmon",
           "677": "Agumon",
           "678": "Agumon",
           "679": "Agumon",
           "680": "Agumon (Black)",
           "681": "PicoDevimon",
+          "684": "Clockmon",
           "685": "Aldamon",
           "686": "KaiserGreymon",
           "687": "Gaioumon: Itto Mode",
@@ -706,6 +721,7 @@ jobs:
           "823": "Cendrillmon",
           "824": "Shoutmon X3",
           "825": "MedievalDukemon",
+          "826": "Yukimibotamon",
           "827": "Kyaromon",
           "828": "Nyabootmon",
           "829": "Youkomon",
@@ -727,6 +743,72 @@ jobs:
           "847": "Rhamphomon"
           }
           ZZEOF_NAMES
+          cat > tools/export_fx.csx <<'ZZEOF_FX'
+          // UndertaleModCli 용 스크립트: (1) 모든 스프라이트 이름표 저장 (2) 공격/스킬 이펙트 같은 스프라이트 내보내기
+          using System;
+          using System.IO;
+          using System.Text;
+          using System.Text.RegularExpressions;
+          using UndertaleModLib.Util;
+
+          string outDir = Environment.GetEnvironmentVariable("OUT_DIR") ?? Path.Combine(Path.GetDirectoryName(FilePath), "fx");
+          Directory.CreateDirectory(outDir);
+          // 캐릭터 몸 동작(이미 모션팩에 있음)은 제외, 그 외 d<ID>_xxx 와 이펙트처럼 보이는 이름은 내보냄
+          var body = new Regex(@"^d\d+_(idle|walk|attack|attack2|skill|hit|guard|faint|win|jump|angry|eat)$");
+          var dChar = new Regex(@"^d\d+_");
+          var fxWord = new Regex("(eff|fx|skill|atk|attack|bullet|shot|beam|magic|ball|fire|flame|ice|thunder|bolt|slash|explo|burst|wave|flash|aura|blast|laser|wind|water|storm|impact|spark|smoke|claw|punch|nova|cannon|missile|arrow|crash)", RegexOptions.IgnoreCase);
+          var names = new StringBuilder("name\tframes\twidth\theight\texported\n");
+          TextureWorker worker = new TextureWorker();
+          int ok = 0, fail = 0, skip = 0;
+          foreach (UndertaleSprite sprite in Data.Sprites)
+          {
+              string n = sprite?.Name?.Content;
+              if (n == null) continue;
+              bool want = !body.IsMatch(n) && (dChar.IsMatch(n) || fxWord.IsMatch(n)) && sprite.Textures.Count <= 150;
+              names.Append(n + "\t" + sprite.Textures.Count + "\t" + sprite.Width + "\t" + sprite.Height + "\t" + (want ? "Y" : "") + "\n");
+              if (!want) { skip++; continue; }
+              for (int i = 0; i < sprite.Textures.Count; i++)
+              {
+                  var tex = sprite.Textures[i]?.Texture;
+                  if (tex == null) continue;
+                  try { worker.ExportAsPNG(tex, Path.Combine(outDir, n + "_" + i + ".png"), null, true); ok++; }
+                  catch (Exception e) { fail++; Console.WriteLine("실패 " + n + "_" + i + ": " + e.Message); }
+              }
+          }
+          File.WriteAllText(Path.Combine(outDir, "_sprite_names.tsv"), names.ToString());
+          (worker as IDisposable)?.Dispose();
+          Console.WriteLine("이펙트 내보내기 완료: 성공 " + ok + " / 실패 " + fail + " / 제외 스프라이트 " + skip);
+          ZZEOF_FX
+          cat > tools/build_fx.py <<'ZZEOF_FXPY'
+          # 사용법: python build_fx.py <내보낸프레임폴더> <출력폴더> [digimon_names.json]
+          # 이름_번호.png 프레임들을 스프라이트별 가로 스트립으로 합치고, d<ID>_ 로 시작하면 해당 디지몬 폴더에 정리
+          import json,os,re,sys,collections,shutil
+          from PIL import Image
+          src,out=sys.argv[1],sys.argv[2]
+          names=json.load(open(sys.argv[3],encoding='utf8')) if len(sys.argv)>3 else {}
+          shutil.rmtree(out,ignore_errors=True);os.makedirs(out)
+          fr=collections.defaultdict(dict)
+          for f in os.listdir(src):
+              m=re.fullmatch(r'(.+)_(\d+)\.png',f)
+              if m: fr[m.group(1)][int(m.group(2))]=os.path.join(src,f)
+          idx={}
+          for nm,d in sorted(fr.items()):
+              ims=[Image.open(d[k]).convert('RGBA') for k in sorted(d)]
+              W=max(i.width for i in ims);H=max(i.height for i in ims)
+              st=Image.new('RGBA',(W*len(ims),H))
+              for j,c in enumerate(ims): st.paste(c,(j*W+(W-c.width)//2,H-c.height))
+              m=re.match(r'd(\d+)_',nm)
+              if m:
+                  did=int(m.group(1));sub=os.path.join(out,'by_digimon','nd_%04d'%did)
+                  owner='nd_%04d'%did;oname=names.get(str(did))
+              else:
+                  sub=os.path.join(out,'common');owner=None;oname=None
+              os.makedirs(sub,exist_ok=True)
+              st.save(os.path.join(sub,nm+'_strip.png'))
+              idx[nm]={'frames':len(ims),'w':W,'h':H,'owner':owner,'owner_name':oname,'file':os.path.relpath(os.path.join(sub,nm+'_strip.png'),out).replace(os.sep,'/')}
+          json.dump(idx,open(os.path.join(out,'fx_index.json'),'w',encoding='utf8'),ensure_ascii=False,indent=1)
+          print('완료: 이펙트 스프라이트',len(idx),'종 (디지몬 전용 %d, 공용 %d)'%(sum(1 for v in idx.values() if v['owner']),sum(1 for v in idx.values() if not v['owner'])))
+          ZZEOF_FXPY
           ls -la tools data
 
       - name: 분할 파일 받아서 이어붙이기 -> game.droid
@@ -778,6 +860,22 @@ jobs:
           echo "내보낸 PNG 수: $(ls out | wc -l)"
           [ "$(ls out | wc -l)" -gt 0 ] || { echo "내보낸 파일이 0개 -> 실패"; exit 1; }
 
+      - name: 스프라이트 이름표 + 공격/스킬 이펙트 내보내기
+        run: |
+          mkdir -p fx
+          export OUT_DIR="$PWD/fx"
+          "$CLI" load data/game.droid --scripts tools/export_fx.csx 2>&1 | tee fx.log || true
+          echo "=== 스크립트 에러 요약 ==="
+          grep -h "error CS" fx.log | sort -u || true
+          echo "내보낸 PNG 수: $(ls fx | grep -c '\.png$' || true)"
+          [ -f fx/_sprite_names.tsv ] && echo "이름표 줄 수: $(wc -l < fx/_sprite_names.tsv)" || echo "이름표 못 만듦"
+
+      - name: 이펙트 스트립 만들기
+        run: |
+          python tools/build_fx.py fx fx_sprites data/digimon_names.json || true
+          cp fx/_sprite_names.tsv fx_sprites/ 2>/dev/null || true
+          ls fx_sprites | head
+
       - name: 이름 붙이고 스트립 만들기
         run: python tools/build_strips.py out sprites data/digimon_names.json
 
@@ -789,6 +887,17 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          name: digimon_fx
+          path: |
+            fx_sprites
+            fx/_sprite_names.tsv
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
           name: logs
-          path: export.log
+          path: |
+            export.log
+            fx.log
           if-no-files-found: ignore
